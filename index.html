@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      body {
+        font-family: 'Segoe UI', sans-serif;
+        padding: 0.5em;
+        background-color: #121212;
+        color: #f1f1f1;
+      }
+
+      h1 {
+        margin-bottom: 0.5em;
+        font-size: 2.6em;
+        text-align: center;
+        color: #ffffff;
+      }
+
+      .global-status {
+        margin: 0.5em auto 1.2em;
+        width: 90%;
+        border-top: 1px solid #444;
+        border-bottom: 1px solid #444;
+        overflow: hidden;
+        white-space: nowrap;
+      }
+
+      .global-status span {
+        display: inline-block;
+        padding-left: 100%;
+        animation: marquee 20s linear infinite;
+        font-weight: bold;
+        font-size: 0.95em;
+      }
+
+      .global-status.normal span { color: #80e27e; }
+      .global-status.alert span { color: #ff5252; }
+
+      @keyframes marquee {
+        0% { transform: translate(0, 0); }
+        100% { transform: translate(-100%, 0); }
+      }
+
+      .lines-container {
+        display: flex;
+        gap: 1.2em;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .station-block {
+        display: flex;
+        flex-direction: column;
+        gap: 1em;
+        min-width: 240px;
+        max-width: 280px;
+        flex: 1;
+      }
+
+      .line-box {
+        background: #1e1e1e;
+        border: 2px solid #333;
+        border-radius: 10px;
+        padding: 0.8em;
+        box-shadow: 2px 2px 8px rgba(255, 255, 255, 0.05);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 100%;
+        min-height: 260px;
+      }
+
+      h2 {
+        font-size: 1.2em;
+        margin-bottom: 0.4em;
+        color: #ffffff;
+        text-align: center;
+        line-height: 1.4em;
+      }
+
+      .timetable {
+        font-size: 1em;
+        width: 100%;
+      }
+
+      .timetable-header {
+        display: flex;
+        justify-content: space-between;
+        font-weight: bold;
+        padding: 0.2em 0;
+        border-bottom: 1px solid #444;
+        color: #bbbbbb;
+      }
+
+      .timetable-header div,
+      .train div {
+        flex: 1;
+        text-align: center;
+        white-space: nowrap;
+      }
+
+      .train {
+        display: flex;
+        justify-content: space-between;
+        margin: 0.2em 0;
+        padding: 0.3em 0.4em;
+        background-color: #2a2a2a;
+        border-radius: 5px;
+        font-size: 1.1em;
+      }
+
+      .access {
+        text-align: center;
+        color: #f5f5f5;
+        font-size: 0.95em;
+        margin-bottom: 0.5em;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>最寄駅時刻表</h1>
+
+    <div class="global-status status normal" id="global-status">
+      <span id="global-status-text">読み込み中...</span>
+    </div>
+
+    <div class="lines-container" id="lines-container">
+      <!-- JSが駅・路線のブロックを動的に追加します -->
+    </div>
+
+    <script>
+      const stationInfo = [
+        {
+          name: "JR茨木駅",
+          walk: 6,
+          lines: [
+            { title: "JR茨木駅<br>（米原方面）", index: 0, id: "jr-east" },
+            { title: "JR茨木駅<br>（神戸方面）", index: 1, id: "jr-west" },
+          ],
+        },
+        {
+          name: "阪急南茨木駅",
+          walk: 8,
+          lines: [
+            { title: "阪急南茨木駅<br>（大阪梅田方面）", index: 2, id: "hankyu-east" },
+            { title: "阪急南茨木駅<br>（京都河原町方面）", index: 3, id: "hankyu-west" },
+          ],
+        },
+        {
+          name: "大阪モノレール南茨木駅",
+          walk: 8,
+          lines: [
+            { title: "大阪モノレール南茨木駅<br>（大阪空港方面）", index: 4, id: "monorail-east" },
+            { title: "大阪モノレール南茨木駅<br>（門真市方面）", index: 5, id: "monorail-west" },
+          ],
+        },
+      ];
+
+      function createLayout() {
+        const container = document.getElementById("lines-container");
+        for (const station of stationInfo) {
+          const block = document.createElement("div");
+          block.className = "station-block";
+
+          for (const line of station.lines) {
+            const box = document.createElement("div");
+            box.className = "line-box";
+            box.id = line.id;
+
+            box.innerHTML = `
+              <h2>${line.title}</h2>
+              <div class="access">🏃徒歩${station.walk}分</div>
+              <div class="timetable"></div>
+            `;
+
+            block.appendChild(box);
+          }
+          container.appendChild(block);
+        }
+      }
+
+      function fetchTimetable() {
+        google.script.run.withSuccessHandler(updateTimetables).getTimetableJson();
+      }
+
+      function updateTimetables(data) {
+        const timetableData = data.timetableData;
+        const statusData = data.statusData;
+
+        const globalStatus = document.getElementById("global-status");
+        const globalText = document.getElementById("global-status-text");
+        const lineNames = ["JR京都線", "阪急京都本線", "大阪モノレール"];
+        let alertFound = false;
+        const summaries = statusData.map((s, i) => {
+          if (s[0] !== "平常運転") alertFound = true;
+          return `${lineNames[i]}: ${s[0]} - ${s[1]}`;
+        });
+        globalStatus.classList.remove("normal", "alert");
+        globalStatus.classList.add(alertFound ? "alert" : "normal");
+        globalText.textContent = summaries.join("　");
+
+        for (const station of stationInfo) {
+          for (const line of station.lines) {
+            const timetable = timetableData[line.index];
+            const timetableElem = document.querySelector(`#${line.id} .timetable`);
+            const trainList = timetable.map(train => `
+              <div class="train">
+                <div>${train.時刻}</div>
+                <div>${train.種類}</div>
+                <div>${train.行き先}</div>
+              </div>
+            `).join("");
+
+            timetableElem.innerHTML = `
+              <div class="timetable-header">
+                <div>🕒時刻</div>
+                <div>🚆種別</div>
+                <div>🎯行先</div>
+              </div>
+              ${trainList}
+            `;
+          }
+        }
+      }
+
+      createLayout();
+      fetchTimetable();
+      setInterval(fetchTimetable, 60000);
+    </script>
+  </body>
+</html>
