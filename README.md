@@ -1,0 +1,1 @@
+# ekitan_scrap_standalone
