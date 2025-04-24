@@ -1,1 +1,1 @@
-# ekitan_scrap_standalone
+# ekitan_scrape_standalone
