@@ -116,6 +116,17 @@
         font-size: 0.95em;
         margin-bottom: 0.5em;
       }
+
+      /* New styles for train types */
+      .train-type-rapid {
+        color: #ff5252; /* Red */
+      }
+      .train-type-express {
+        color: #ffa500; /* Orange */
+      }
+      .train-type-semi-express {
+        color: #adff2f; /* Yellow-green */
+      }
     </style>
   </head>
   <body>
@@ -126,8 +137,7 @@
     </div>
 
     <div class="lines-container" id="lines-container">
-      <!-- JSが駅・路線のブロックを動的に追加します -->
-    </div>
+      </div>
 
     <script>
       const stationInfo = [
@@ -180,6 +190,17 @@
         }
       }
 
+      function getTrainTypeClass(trainType) {
+        if (trainType.includes("快速")) {
+          return "train-type-rapid";
+        } else if (trainType.includes("急行")) {
+          return "train-type-express";
+        } else if (trainType.includes("準急")) {
+          return "train-type-semi-express";
+        }
+        return ""; // No specific class if not matched
+      }
+
       function fetchTimetable() {
         google.script.run.withSuccessHandler(updateTimetables).getTimetableJson();
       }
@@ -207,7 +228,7 @@
             const trainList = timetable.map(train => `
               <div class="train">
                 <div>${train.時刻}</div>
-                <div>${train.種類}</div>
+                <div class="${getTrainTypeClass(train.種類)}">${train.種類}</div>
                 <div>${train.行き先}</div>
               </div>
             `).join("");
