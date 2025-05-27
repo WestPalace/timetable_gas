@@ -117,12 +117,28 @@ function addMinutesToHHmm(timeStr, minutesToAdd) {
 }
 
 function findTop3ClosestIndexesAfter(timeList, targetTime) {
-  const target = parseInt(targetTime, 10);
+  const targetHour = parseInt(targetTime.slice(0, 2), 10);
+  const targetMinute = parseInt(targetTime.slice(2, 4), 10);
+  const targetTimeInMinutes = targetHour * 60 + targetMinute;
 
   // 1. 時刻とそのインデックスをセットで保持
   const indexed = timeList
-    .map((t, i) => ({ time: parseInt(t, 10), index: i }))
-    .filter(item => item.time > target);
+    .map((t, i) => {
+      let currentHour = parseInt(t.slice(0, 2), 10);
+      let currentMinute = parseInt(t.slice(2, 4), 10);
+      let currentTimeInMinutes = currentHour * 60 + currentMinute;
+
+      // 現在の時刻が日中の早い時間（例：00:xx, 01:xx, ..., 03:xx）で、
+      // ターゲット時刻が夜遅い時間（例：20:xx, 21:xx, ..., 23:xx）の場合、
+      // 現在の時刻を翌日のものとみなして、比較のために24時間を追加します。
+      // 「日中の早い時間」のカットオフを午前4時、「夜遅い時間」のターゲットを午後8時としています。
+      if (currentTimeInMinutes < targetTimeInMinutes && targetHour >= 20 && currentHour < 4) {
+          currentTimeInMinutes += (24 * 60); // 比較のために24時間（分単位）を追加
+      }
+
+      return { time: currentTimeInMinutes, index: i };
+    })
+    .filter(item => item.time >= targetTimeInMinutes); // ターゲット時刻自体も含むように >= を使用
 
   // 2. 近い順にソート
   indexed.sort((a, b) => a.time - b.time);
